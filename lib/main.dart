@@ -289,6 +289,7 @@ class _SurveyScreenState extends State<SurveyScreen> {
   void _runModelAndNavigate() async {
     try {
       // Load the TFLite interpreter
+      // TODO: Add the real model and convert each feacture (Q-10 Answer) to its numeric representation
       final interpreter = await Interpreter.fromAsset('assets/model.tflite');
 
       var input = [List<double>.from(_inputData)]; // Batch size of 1, 9 features

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:tflite_flutter/tflite_flutter.dart';
+import 'dart:typed_data';
 
 void main() {
   runApp(MyApp());
@@ -111,6 +113,8 @@ class _SurveyScreenState extends State<SurveyScreen> {
   int currentQuestionIndex = 0; // Track the current question index
   List<int> answers = List.filled(9, -1); // Store answers, initialized to -1
   String ageInput = ''; // Store age input for question 7
+  List<double> _inputData = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
+  List<double>? _outputData;
 
   // List of questions
   final List<String> questions = [
@@ -247,7 +251,6 @@ class _SurveyScreenState extends State<SurveyScreen> {
   }
 
 
-  // Function to handle the next button click
   void _nextQuestion() {
     if ((currentQuestionIndex <= 5 && answers[currentQuestionIndex] != -1) ||
         (currentQuestionIndex == 6 && ageInput.isNotEmpty) ||
@@ -267,11 +270,8 @@ class _SurveyScreenState extends State<SurveyScreen> {
           print(answer);
         }
 
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => FinalScreen()),
-        );
+        // Call the IA model to get the final result
+        _runModelAndNavigate();
       }
     } else {
       // Show a snackbar if no answer is selected
@@ -283,7 +283,56 @@ class _SurveyScreenState extends State<SurveyScreen> {
     }
   }
 
+
+
   // Function to handle the previous button click
+  void _runModelAndNavigate() async {
+    try {
+      // Load the TFLite interpreter
+      final interpreter = await Interpreter.fromAsset('assets/model.tflite');
+
+      var input = [List<double>.from(_inputData)]; // Batch size of 1, 9 features
+      var output = List.filled(2, 0.0).reshape([1, 2]); // Output size: [1, 2]
+
+      // Run inference
+      interpreter.run(input, output);
+
+      setState(() {
+        _outputData = output[0];
+      });
+
+      print("Output: $_outputData");
+
+      // Ensure _outputData is not null before using it
+      if (_outputData != null) {
+        final result = _outputData!; // Use the non-nullable operator (!)
+
+        // Interpret the result (e.g., binary classification)
+        String message = result[0] > 0.5
+            ? 'Según la información proporcionada, existe un posible riesgo de que su hijo sea diagnosticado con TEA. Consulte con un especialista.'
+            : 'Los resultados no sugieren un riesgo significativo de TEA. Consulte con un especialista si tiene dudas.';
+
+        // Navigate to FinalScreen with the result message
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => FinalScreen(message: message)),
+        );
+      } else {
+        throw Exception('No output data from model');
+      }
+
+
+    } catch (e) {
+      print('Error while running the TFLite model: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al procesar el modelo de IA. Inténtelo de nuevo.'),
+        ),
+      );
+    }
+  }
+
+
   void _previousQuestion() {
     if (currentQuestionIndex == 0) {
       // If on the first question, go back to the previous screen
@@ -344,13 +393,19 @@ class _SurveyScreenState extends State<SurveyScreen> {
 }
 
 class FinalScreen extends StatelessWidget {
+  final String message;
+
+  // Constructor to accept the message
+  FinalScreen({required this.message});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(''),
       ),
-      body: Center(
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -360,9 +415,7 @@ class FinalScreen extends StatelessWidget {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             Text(
-              'Según la información proporcionada, existe un posible riesgo de que su hijo sea diagnosticado con Trastorno del '
-                  'Espectro Autista (TEA). Es recomendable que consulte con un especialista lo antes posible para obtener un diagnóstico '
-                  'más detallado.',
+              message,
               style: TextStyle(fontSize: 16),
             ),
             SizedBox(height: 20),

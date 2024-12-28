@@ -1,0 +1,1 @@
+ /home/arkon/StudioProjects/TEA_APP/.dart_tool/flutter_build/c8847822035206eae9325d43665c5177/native_assets.yaml: 
